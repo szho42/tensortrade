@@ -49,7 +49,8 @@ setup(
         'numpy==1.16.4',
         'pandas==0.25.0',
         'gym==0.14.0',
-        'pyyaml==5.1.2'
+        'pyyaml==5.1.2',
+        'sympy==1.4'
     ],
     extras_require={
         'tf': ['tensorflow==1.13.1'],
@@ -57,8 +58,20 @@ setup(
         'tensorforce': ['tensorforce==0.5.2'],
         'baselines': ['stable-baselines==2.8.0', 'mpi4py'],
         'ta': ['ta==0.4.7'],
-        'fbm': ['stochastic==0.4.0'],
+        'ta-lib': ['ta-lib==0.4.17'],
+        'stochastic': ['stochastic==0.4.0'],
+        'matplotlib': ['matplotlib==3.1.1'],
         'ccxt': ['ccxt==1.18.1220'],
+        'all-framework': ['tensorflow==1.13.1',
+                          'tensorforce==0.5.2',
+                          'stable-baselines==2.8.0',
+                          'mpi4py',
+                          'ta==0.4.7',
+                          'ta-lib==0.4.17',
+                          'stochastic==0.4.0',
+                          'ccxt==1.18.1220',
+                          'matplotlib==3.1.1'
+                          ],
         'tests': ['pytest==5.1.1'],
         'all-tests': ['tensorflow==1.13.1',
                       'tensorforce==0.5.2',

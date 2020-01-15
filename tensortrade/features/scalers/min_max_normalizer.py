@@ -13,11 +13,8 @@
 # limitations under the License
 
 import pandas as pd
-import numpy as np
 
-from gym import Space
-from copy import copy
-from typing import Union, List, Tuple, Dict
+from typing import Union, List, Dict
 
 from tensortrade.features.feature_transformer import FeatureTransformer
 
@@ -27,8 +24,8 @@ class MinMaxNormalizer(FeatureTransformer):
 
     def __init__(self,
                  columns: Union[List[str], str, None] = None,
-                 input_min: float = -1E-8,
-                 input_max: float = 1E8,
+                 input_min: Union[Dict[str, float], float] = -1E3,
+                 input_max: Union[Dict[str, float], float] = 1E8,
                  feature_min: float = 0,
                  feature_max: float = 1,
                  inplace: bool = True):
@@ -48,14 +45,18 @@ class MinMaxNormalizer(FeatureTransformer):
         self._feature_min = feature_min
         self._feature_max = feature_max
 
+        if feature_min >= feature_max:
+            raise ValueError("feature_min must be less than feature_max")
+
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         if self.columns is None:
             self.columns = list(X.select_dtypes('number').columns)
 
         for column in self.columns:
-            low, high = self._input_min, self._input_max
+            low = self._input_min[column] if isinstance(self._input_min, dict) else self._input_min
+            high = self._input_max[column] if isinstance(self._input_max, dict) else self._input_max
 
-            scale = (self._feature_max - self._feature_min) + self._feature_min
+            scale = (self._feature_max - self._feature_min)
 
             if high - low == 0:
                 normalized_column = (1/len(X[column])) * scale
@@ -66,7 +67,7 @@ class MinMaxNormalizer(FeatureTransformer):
                 column = '{}_minmax_{}_{}'.format(column, self._feature_min, self._feature_max)
 
             args = {}
-            args[column] = normalized_column
+            args[column] = normalized_column + self._feature_min
 
             X = X.assign(**args)
 

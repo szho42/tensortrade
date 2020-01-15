@@ -1,13 +1,11 @@
-from .action_scheme import ActionScheme, DTypeString, TradeActionUnion
-from .continuous_actions import ContinuousActions
-from .discrete_actions import DiscreteActions
-from .multi_discrete_actions import MultiDiscreteActions
+from .action_scheme import ActionScheme
+from .dynamic_orders import DynamicOrders
+from .managed_risk_orders import ManagedRiskOrders
 
 
 _registry = {
-    'continuous': ContinuousActions,
-    'discrete': DiscreteActions,
-    'multi-discrete': MultiDiscreteActions,
+    'dynamic': DynamicOrders,
+    'managed-risk': ManagedRiskOrders,
 }
 
 

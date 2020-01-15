@@ -4,14 +4,16 @@ import yaml
 
 from typing import Union, List
 from collections import UserDict
+
 from .registry import registered_names, get_major_component_names
+from tensortrade.instruments import Instrument, USD
 
 
 class TradingContext(UserDict):
-    """A class that objects that put themselves in a `Context` using
+    """A class for objects that put themselves in a `Context` using
     the `with` statement.
 
-    This implementation for this class is heavily borrowed from the pymc3
+    The implementation for this class is heavily borrowed from the pymc3
     library and adapted with the design goals of TensorTrade in mind.
 
     Arguments:
@@ -29,23 +31,13 @@ class TradingContext(UserDict):
         behavior.
 
     Reference:
-        https://github.com/pymc-devs/pymc3/blob/master/pymc3/model.py
+        - https://github.com/pymc-devs/pymc3/blob/master/pymc3/model.py
 
     """
     contexts = threading.local()
 
-    def __init__(self,
-                 base_instrument: str = 'USD',
-                 instruments: Union[str, List[str]] = 'BTC',
-                 **config):
-        super().__init__(
-            base_instrument=base_instrument,
-            instruments=instruments,
-            **config
-        )
-
-        if type(instruments) == str:
-            instruments = [instruments]
+    def __init__(self, base_instrument: Instrument = USD, **config):
+        super().__init__(base_instrument=base_instrument, **config)
 
         for name in registered_names():
             if name not in get_major_component_names():
@@ -63,7 +55,6 @@ class TradingContext(UserDict):
 
         self._shared = {
             'base_instrument': base_instrument,
-            'instruments': instruments,
             **self._shared,
             **config_items
         }
@@ -138,30 +129,17 @@ class Context(UserDict):
 
     Arguments:
         base_instrument: The exchange symbol of the instrument to store/measure value in.
-        instruments: The exchange symbols of the instruments being traded.
     """
 
-    def __init__(self,
-                 base_instrument: str = 'USD',
-                 instruments: Union[str, List[str]] = 'BTC',
-                 **kwargs):
-        super(Context, self).__init__(
-            base_instrument=base_instrument,
-            instruments=instruments,
-            **kwargs
-        )
+    def __init__(self, base_instrument: Instrument = USD, **kwargs):
+        super(Context, self).__init__(base_instrument=base_instrument, **kwargs)
 
         self._base_instrument = base_instrument
-        self._instruments = instruments
         self.__dict__ = {**self.__dict__, **self.data}
 
     @property
-    def base_instrument(self):
+    def base_instrument(self) -> Instrument:
         return self._base_instrument
-
-    @property
-    def instruments(self):
-        return self._instruments
 
     def __str__(self):
         data = ['{}={}'.format(k, getattr(self, k)) for k in self.__slots__]

@@ -13,36 +13,44 @@
 # limitations under the License.
 
 import talib
-import numpy as np
 import pandas as pd
 
-from gym import Space
-from copy import copy
-from abc import abstractmethod
-from typing import Union, List, Callable
+from typing import Union, List
 
-from tensortrade.features.feature_transformer import FeatureTransformer
+from tensortrade.features import FeatureTransformer
 
 
 class TAlibIndicator(FeatureTransformer):
     """Adds one or more TAlib indicators to a data frame, based on existing open, high, low, and close column values."""
 
-    def __init__(self, indicators: List[str], lows: Union[List[float], List[int]] = None, highs: Union[List[float], List[int]] = None):
-        self._indicator_names = indicators
-        self._indicators = list(
-            map(lambda indicator_name: self._str_to_indicator(indicator_name), indicators))
-
-        self._lows = lows or np.zeros(len(indicators))
-        self._highs = highs or np.ones(len(indicators))
-
-    def _str_to_indicator(self, indicator_name: str):
-        return getattr(talib, indicator_name.upper())
+    def __init__(self, indicators: List[str], lows: Union[List[float], List[int]] = None, highs: Union[List[float], List[int]] = None, **kwargs):
+        self._indicator_names = [indicator[0].upper() for indicator in indicators]
+        self._indicator_args = {indicator[0]:indicator[1]['args'] for indicator in indicators}
+        self._indicator_params = {indicator[0]: indicator[1]['params'] for indicator in indicators}
+        self._indicators = [getattr(talib, name.split('-')[0]) for name in self._indicator_names]
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-        for i in range(len(self._indicators)):
-            indicator_name = self._indicator_names[i]
-            indicator = self._indicators[i]
+        for idx, indicator in enumerate(self._indicators):
+            indicator_name = self._indicator_names[idx]
+            indicator_args = [X[arg].values for arg in self._indicator_args[indicator_name]]
+            indicator_params = self._indicator_params[indicator_name]
 
-            X[indicator_name.upper()] = indicator(X['open'], X['high'], X['low'], X['close'])
+            if indicator_name == 'BBANDS':
+                upper, middle, lower = indicator(*indicator_args,**indicator_params)
+
+                X["bb_upper"] = upper
+                X["bb_middle"] = middle
+                X["bb_lower"] = lower
+            else:
+                try:
+                    value = indicator(*indicator_args,**indicator_params)
+
+                    if type(value) == tuple:
+                        X[indicator_name] = value[0][0]
+                    else:
+                        X[indicator_name] = value
+
+                except:
+                    X[indicator_name] = indicator(*indicator_args,**indicator_params)[0]
 
         return X
