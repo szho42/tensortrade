@@ -35,10 +35,12 @@ class Exchange(Component, TimedIdentifiable):
         """The list of observation columns provided by the exchange each time step."""
         raise NotImplementedError
 
-    @property
     @abstractmethod
-    def has_next_observation(self) -> bool:
+    def has_next_observation(self, window_size) -> bool:
         """If `False`, the exchange's data source has run out of observations.
+
+        Arguments:
+            window_size: the window size to ensure sufficient entries in an observation
 
         Resetting the exchange may be necessary to continue generating observations.
 
@@ -48,7 +50,7 @@ class Exchange(Component, TimedIdentifiable):
         raise NotImplementedError
 
     @abstractmethod
-    def next_observation(self) -> pd.DataFrame:
+    def next_observation(self, window_size) -> pd.DataFrame:
         """Generate the next observation from the exchange, including wallet balances if specified.
 
         Returns:

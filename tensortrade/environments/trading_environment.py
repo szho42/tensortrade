@@ -40,40 +40,55 @@ if importlib.util.find_spec("matplotlib") is not None:
     from tensortrade.environments.render import MatplotlibTradingChart
 
 
+# class TradingEnvironment(gym.Env, TimeIndexed):
+#     """A trading environments made for use with Gym-compatible reinforcement learning algorithms."""
+
+#     def __init__(self,
+#                  portfolio: Union[Portfolio, str],
+#                  exchange: Union[Exchange, str],
+#                  action_scheme: Union[ActionScheme, str],
+#                  reward_scheme: Union[RewardScheme, str],
+#                  feature_pipeline: Union[FeaturePipeline, str] = None,
+#                  window_size: int = 1,
+#                  **kwargs):
+"""
+Arguments:
+    exchange: The `Exchange` used to feed data from and execute trades within.
+    portfolio: The `Portfolio` of wallets used to submit and execute orders from.
+    action_scheme:  The component for transforming an action into an `Order` at each timestep.
+    reward_scheme: The component for determining the reward at each timestep.
+    feature_pipeline (optional): The pipeline of features to pass the observations through.
+    kwargs (optional): Additional arguments for tuning the environments, logging, etc.
+"""
+
 class TradingEnvironment(gym.Env, TimeIndexed):
-    """A trading environments made for use with Gym-compatible reinforcement learning algorithms."""
-
-    def __init__(self,
-                 portfolio: Union[Portfolio, str],
-                 exchange: Union[Exchange, str],
-                 action_scheme: Union[ActionScheme, str],
-                 reward_scheme: Union[RewardScheme, str],
-                 feature_pipeline: Union[FeaturePipeline, str] = None,
-                 window_size: int = 1,
-                 **kwargs):
-        """
-        Arguments:
-            exchange: The `Exchange` used to feed data from and execute trades within.
-            portfolio: The `Portfolio` of wallets used to submit and execute orders from.
-            action_scheme:  The component for transforming an action into an `Order` at each timestep.
-            reward_scheme: The component for determining the reward at each timestep.
-            feature_pipeline (optional): The pipeline of features to pass the observations through.
-            kwargs (optional): Additional arguments for tuning the environments, logging, etc.
-        """
+    def __init__(self, env_config):
         super().__init__()
+        self.portfolio = env_config['portfolio']
+        self.exchange = env_config['exchange']
+        self.action_scheme = env_config['action_scheme']
+        self.reward_scheme = env_config['reward_scheme']
+        self.feature_pipeline = env_config.get('feature_pipeline', [])
 
-        self.portfolio = portfolio
-        self.exchange = exchange
-        self.action_scheme = action_scheme
-        self.reward_scheme = reward_scheme
-        self.feature_pipeline = feature_pipeline
+        self._window_size = env_config.get('window_size', 10)
+        self._dtype = env_config.get('dtype', np.float32)
+        self._observation_lows = env_config.get('observation_lows', 0)
+        self._observation_highs = env_config.get('observation_highs', 1)
+        self._observe_wallets = env_config.get('observe_wallets', None)
 
-        self._window_size = window_size
-        self._dtype = kwargs.get('dtype', np.float32)
+        kwargs = env_config
+        # self.portfolio = portfolio
+        # self.exchange = exchange
+        # self.action_scheme = action_scheme
+        # self.reward_scheme = reward_scheme
+        # self.feature_pipeline = feature_pipeline
 
-        self._observation_lows = kwargs.get('observation_lows', 0)
-        self._observation_highs = kwargs.get('observation_highs', 1)
-        self._observe_wallets = kwargs.get('observe_wallets', None)
+        # self._window_size = window_size
+        # self._dtype = kwargs.get('dtype', np.float32)
+
+        # self._observation_lows = kwargs.get('observation_lows', 0)
+        # self._observation_highs = kwargs.get('observation_highs', 1)
+        # self._observe_wallets = kwargs.get('observe_wallets', None)
 
         if isinstance(self._observe_wallets, list):
             self._observe_unlocked_balances = self._observe_wallets
@@ -217,7 +232,8 @@ class TradingEnvironment(gym.Env, TimeIndexed):
             low = np.tile(low, self._window_size).reshape((self._window_size, n_features))
             high = np.tile(high, self._window_size).reshape((self._window_size, n_features))
 
-        return Box(low=low, high=high, dtype=self._dtype)
+        #return Box(low=low, high=high, dtype=self._dtype)
+        return Box(low=-np.inf, high=np.inf, shape=(self._window_size, n_features), dtype=self._dtype)
 
     def wallet(self, instrument: Instrument) -> 'Wallet':
         wallet = self._portfolio.get_wallet(self.exchange.id, instrument)
@@ -268,7 +284,7 @@ class TradingEnvironment(gym.Env, TimeIndexed):
         Returns:
             The observation provided by the environments's exchange, often OHLCV or tick trade history data points.
         """
-        observation = self._exchange.next_observation()
+        observation = self._exchange.next_observation(self._window_size)
 
         if self._observe_locked_balances or self._observe_unlocked_balances:
             wallet_balances = self.observe_balances()
@@ -279,12 +295,12 @@ class TradingEnvironment(gym.Env, TimeIndexed):
         if self._feature_pipeline is not None:
             observation = self._feature_pipeline.transform(observation)
 
-        if len(observation) < self._window_size:
-            size = self._window_size - len(observation)
-            padding = np.zeros((size, observation.shape[1]))
+        # if len(observation) < self._window_size:
+        #     size = self._window_size - len(observation)
+        #     padding = np.zeros((size, observation.shape[1]))
 
-            padding = pd.DataFrame(padding, columns=observation.columns)
-            observation = pd.concat([padding, observation], ignore_index=True, sort=False)
+        #     padding = pd.DataFrame(padding, columns=observation.columns)
+        #     observation = pd.concat([padding, observation], ignore_index=True, sort=False)
 
         observation = observation.select_dtypes(include='number')
 
@@ -317,7 +333,7 @@ class TradingEnvironment(gym.Env, TimeIndexed):
             A boolean signaling whether the environments is done and should be restarted.
         """
         lost_90_percent_net_worth = self._portfolio.profit_loss < 0.1
-        return lost_90_percent_net_worth or not self._exchange.has_next_observation
+        return lost_90_percent_net_worth or not self._exchange.has_next_observation(window_size=self._window_size)
 
     def _info(self, order: Order) -> dict:
         """Returns any auxiliary, diagnostic, or debugging information for the current timestep.
@@ -358,7 +374,7 @@ class TradingEnvironment(gym.Env, TimeIndexed):
 
         if self._enable_logger:
             self.logger.debug('Order: {}'.format(order))
-            self.logger.debug('Observation: {}'.format(observation))
+            #self.logger.debug('Observation: {}'.format(observation))
             self.logger.debug('P/L: {}'.format(self._portfolio.profit_loss))
             self.logger.debug('Reward ({}): {}'.format(self.clock.step, reward))
             self.logger.debug('Performance: {}'.format(self._portfolio.performance.tail(1)))

@@ -45,6 +45,7 @@ class SimulatedExchange(Exchange):
         self._max_trade_price = self.default('max_trade_price', 1e8, kwargs)
         self._randomize_time_slices = self.default('randomize_time_slices', False, kwargs)
         self._min_time_slice = self.default('min_time_slice', 128, kwargs)
+        #self._window_size = self.default('window_size', 10, kwargs)
 
         self._price_column = self.default('price_column', 'close', kwargs)
         self.data_frame = self.default('data_frame', data_frame)
@@ -53,14 +54,7 @@ class SimulatedExchange(Exchange):
         self._slippage_model = slippage.get(slippage_model) if isinstance(
             slippage_model, str) else slippage_model()
 
-        self._initial_step = 0
-        self._final_step = len(self._data_frame) - 1
-
-        if self._randomize_time_slices:
-            self._initial_step = np.random.randint(
-                0, len(self._data_frame) - self._min_time_slice - 2)
-            self._final_step = np.random.randint(
-                self._initial_step + self._min_time_slice, len(self._data_frame) - 1)
+        self.reset()
 
     @property
     def is_live(self):
@@ -92,13 +86,13 @@ class SimulatedExchange(Exchange):
 
         return data_frame.select_dtypes(include=[np.float, np.number]).columns
 
-    @property
-    def has_next_observation(self) -> bool:
-        return self._initial_step + self.clock.step < self._final_step
+    def has_next_observation(self, window_size) -> bool:
+        return self._initial_step + self.clock.step + window_size < self._final_step
 
-    def next_observation(self, window_size: int = 1) -> pd.DataFrame:
-        lower_range = max(self.clock.step + self._initial_step - window_size, self._initial_step)
-        upper_range = min(self.clock.step + self._initial_step + 1, self._final_step)
+    def next_observation(self, window_size) -> pd.DataFrame:
+        lower_range = self.clock.step + self._initial_step
+        #upper_range = min(self.clock.step + self._initial_step + 1, self._final_step)
+        upper_range = min(self.clock.step + self._initial_step + window_size, self._final_step)
 
         obs = self._data_frame.iloc[lower_range:upper_range]
 
