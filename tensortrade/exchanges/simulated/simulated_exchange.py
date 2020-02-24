@@ -45,7 +45,7 @@ class SimulatedExchange(Exchange):
         self._max_trade_price = self.default('max_trade_price', 1e8, kwargs)
         self._randomize_time_slices = self.default('randomize_time_slices', False, kwargs)
         self._min_time_slice = self.default('min_time_slice', 128, kwargs)
-        #self._window_size = self.default('window_size', 10, kwargs)
+        self._window_size = self.default('window_size', 10, kwargs)
 
         self._price_column = self.default('price_column', 'close', kwargs)
         self.data_frame = self.default('data_frame', data_frame)
@@ -214,3 +214,11 @@ class SimulatedExchange(Exchange):
                 0, len(self._data_frame) - self._min_time_slice - 2)
             self._final_step = np.random.randint(
                 self._initial_step + self._min_time_slice, len(self._data_frame) - 1)
+
+class ShuffleSimulatedExchange(SimulatedExchange):
+    def __init__(self, data_frame, **kwargs):
+        super(ShuffleSimulatedExchange, self).__init__(data_frame, **kwargs)
+
+    def reset(self):
+        self._initial_step = np.random.randint(0, len(self._data_frame) - self._window_size)
+        self._final_step = self._initial_step + self._window_size
